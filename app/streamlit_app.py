@@ -1,7 +1,6 @@
-from __future__ import annotations
-
 import json
 import os
+import re
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -616,8 +615,8 @@ GEMINI_MAX_OUTPUT_TOKENS = 8192
 
 GEMINI_MODELS_FALLBACK = [
     ("gemini-3.5-flash", "Gemini 3.5 Flash"),
-    ("gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite"),
     ("gemini-2.5-flash", "Gemini 2.5 Flash"),
+    ("gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite"),
 ]
 
 
@@ -690,7 +689,7 @@ def extrair_texto_gemini(resposta_json):
     return texto, motivo_bloqueio
 
 
-def chamar_gemini_com_fallback(prompt: str, max_tokens: int = GEMINI_MAX_OUTPUT_TOKENS):
+def chamar_gemini_com_fallback(prompt: str, max_tokens: int = GEMINI_MAX_OUTPUT_TOKENS, formato_json: bool = False):
     """
     Envia `prompt` ao primeiro modelo de GEMINI_MODELS_FALLBACK que responder
     com sucesso e retorna (texto_gerado, nome_do_modelo_usado).
@@ -728,6 +727,9 @@ def chamar_gemini_com_fallback(prompt: str, max_tokens: int = GEMINI_MAX_OUTPUT_
                 "maxOutputTokens": max_tokens,
             },
         }
+
+        if formato_json:
+            payload["generationConfig"]["responseMimeType"] = "application/json"
 
         try:
             resposta = requests.post(url, headers=headers, json=payload, timeout=GEMINI_TIMEOUT_SEGUNDOS)
@@ -834,43 +836,62 @@ def extrair_campos_com_gemini(descricao, dados_df):
     com os valores extraídos para cada campo do formulário.
     Retorna (campos_dict, modelo_usado) ou levanta GeminiIndisponivelError.
     """
-    # Montar bloco de opções por campo
+    # Montar bloco de opções por campo formatado como lista Markdown
     blocos_opcoes = []
     for campo in CAMPOS_FORMULARIO:
         lista = _opcoes_para_prompt(dados_df, campo)
         if lista:
-            blocos_opcoes.append(f'"{campo}": {json.dumps(lista, ensure_ascii=False)}')
+            opcoes_str = ", ".join(lista)
+            blocos_opcoes.append(f'- **{campo}**: {opcoes_str}')
 
-    opcoes_texto = ",\n".join(blocos_opcoes)
+    opcoes_texto = "\n".join(blocos_opcoes)
 
-    prompt = f"""Você é um assistente que extrai informações estruturadas de reclamações de consumidores.
+    prompt = f"""Você é um especialista em análise de reclamações de consumidores.
 
-O usuário descreveu uma reclamação em linguagem natural. Sua tarefa é ler a descrição e selecionar, para cada campo do formulário, a opção que MELHOR corresponde ao que o usuário descreveu.
+Leia a reclamação abaixo e extraia as informações estruturadas.
 
-## Descrição do usuário
+## Reclamação do usuário
 \"\"\"{descricao}\"\"\"
 
-## Campos e opções válidas
-Para cada campo, escolha EXATAMENTE UMA opção da lista. Se a descrição não mencionar informação suficiente para um campo, use "Não informado".
+## Campos e opções permitidas
+Para cada campo, você DEVE escolher EXATAMENTE UMA opção da lista abaixo. Se não houver menção na reclamação, use "Não informado".
+Se a opção exata não existir (por exemplo, na categoria Problema ou Assunto), escolha a que mais se aproxima do relato.
+
+{opcoes_texto}
+
+## Exemplo de saída esperada (Formato estrito)
+Responda APENAS com um JSON. Não adicione texto antes ou depois. Use um campo "_raciocinio" para explicar rapidamente suas escolhas.
 
 {{
-{opcoes_texto}
+  "_raciocinio": "A reclamação cita internet lenta (Vício de Qualidade), contato prévio com a empresa e moradia no Sudeste (SP).",
+  "Canal de Origem": "Internet",
+  "Área": "Telecomunicações",
+  "Assunto": "Internet Fixa",
+  "Grupo Problema": "Vício de Qualidade",
+  "Problema": "Velocidade abaixo do contratado",
+  "Segmento de Mercado": "Provedores de Acesso à Internet",
+  "Como Comprou Contratou": "Internet",
+  "Procurou Empresa": "S",
+  "Região": "Sudeste",
+  "UF": "SP",
+  "Ano Abertura": "2026",
+  "Mês Abertura": "3",
+  "Sexo": "Não informado",
+  "Faixa Etária": "Entre 31 a 40 anos"
 }}
 
 ## Regras obrigatórias
-1. Responda APENAS com um JSON válido, sem texto antes ou depois, sem markdown, sem ```json.
-2. Use EXATAMENTE os nomes dos campos como chaves.
-3. Use EXATAMENTE um dos valores listados — não invente valores novos.
-4. Para "Mês Abertura", converta o nome do mês para número (ex: janeiro → 1, março → 3).
-5. Para "Ano Abertura", extraia o ano se mencionado.
-6. Para "Procurou Empresa", use "S" se o usuário disse que procurou/contactou a empresa, "N" caso contrário, "Não informado" se não mencionou.
-7. Infira "Região" e "UF" se o usuário mencionar estado ou cidade.
-8. Escolha o "Problema", "Assunto", "Grupo Problema", "Segmento de Mercado" e "Área" que melhor se encaixam na descrição, mesmo que não sejam exatos.
-9. Se o valor exato não existir na lista mas houver um semelhante, escolha o mais próximo.
+1. Responda APENAS com um JSON válido, sem markdown (` ```json `).
+2. Use EXATAMENTE um dos valores listados. Não invente categorias.
+3. Para "Mês Abertura", converta o mês para número em formato de texto (ex: janeiro → "1").
+4. Para "Ano Abertura", extraia o ano em formato de texto.
+5. Para "Procurou Empresa", use "S" ou "N" ou "Não informado".
+6. Responda SOMENTE com o JSON.""".strip()
 
-Responda SOMENTE com o JSON.""".strip()
+    texto, modelo_usado = chamar_gemini_com_fallback(prompt, max_tokens=GEMINI_MAX_OUTPUT_TOKENS)
 
-    texto, modelo_usado = chamar_gemini_com_fallback(prompt, max_tokens=1024)
+    with open(Path(__file__).parent / "gemini_debug.txt", "w", encoding="utf-8") as f:
+        f.write("RAW TEXTO:\n" + texto)
 
     # Limpar possíveis marcadores de code block
     texto = texto.strip()
@@ -880,33 +901,37 @@ Responda SOMENTE com o JSON.""".strip()
         texto = texto.rsplit("```", 1)[0]
     texto = texto.strip()
 
+    campos = None
     try:
-        campos = json.loads(texto)
+        texto_json = re.sub(r',\s*}', '}', texto)
+        campos = json.loads(texto_json)
     except json.JSONDecodeError:
         # Tentar extrair JSON de dentro do texto
         inicio = texto.find("{")
         fim = texto.rfind("}")
         if inicio != -1 and fim != -1:
             try:
-                campos = json.loads(texto[inicio : fim + 1])
+                texto_json = re.sub(r',\s*}', '}', texto[inicio : fim + 1])
+                campos = json.loads(texto_json)
             except json.JSONDecodeError:
-                raise GeminiIndisponivelError(
-                    categoria="todos_falharam",
-                    mensagem_usuario="A IA retornou uma resposta que não foi possível interpretar. Tente reformular a descrição.",
-                    detalhe_tecnico=f"Resposta recebida: {texto[:500]}",
-                )
-        else:
-            raise GeminiIndisponivelError(
-                categoria="todos_falharam",
-                mensagem_usuario="A IA retornou uma resposta que não foi possível interpretar. Tente reformular a descrição.",
-                detalhe_tecnico=f"Resposta recebida: {texto[:500]}",
-            )
+                pass
 
+    # Fallback supremo com Regex (salva JSONs truncados ou malformados)
     if not isinstance(campos, dict):
+        # Captura chaves e valores (strings com aspas, ou números/booleanos sem aspas)
+        matches = re.findall(r'["\']([^"\']+)["\']\s*:\s*(?:["\']([^"\']+)["\']|([0-9a-zA-Z_.-]+))', texto)
+        if matches:
+            campos = {}
+            for match in matches:
+                chave = match[0]
+                valor = match[1] if match[1] else match[2]
+                campos[chave] = str(valor)
+
+    if not isinstance(campos, dict) or not campos:
         raise GeminiIndisponivelError(
             categoria="todos_falharam",
-            mensagem_usuario="A IA retornou uma resposta em formato inesperado.",
-            detalhe_tecnico=f"Tipo recebido: {type(campos).__name__}",
+            mensagem_usuario="A IA retornou uma resposta que não foi possível interpretar. Tente reformular a descrição.",
+            detalhe_tecnico=f"Resposta recebida: {texto[:500]}",
         )
 
     # Validar: garantir que os valores retornados existam nas opções reais

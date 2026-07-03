@@ -153,8 +153,8 @@ Quando qualquer funcionalidade de IA é acionada, o painel tenta os modelos na s
 
 ```text
 1. gemini-3.5-flash
-2. gemini-3.1-flash-lite
-3. gemini-2.5-flash
+2. gemini-2.5-flash
+3. gemini-3.1-flash-lite
 ```
 
 Se o primeiro modelo falhar por indisponibilidade, limite de requisições ou erro, o painel tenta automaticamente o próximo. Se todos falharem:

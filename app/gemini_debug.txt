@@ -1,0 +1,18 @@
+RAW TEXTO:
+{
+  "_raciocinio": "O consumidor relata a compra de um celular (Área: Produtos de Telefonia e Informática, Assunto: Aparelho celular) pela internet (Como Comprou Contratou: Internet, Segmento de Mercado: Comércio Eletrônico) em março de 2026 (Mês: 3.0, Ano: 2026.0). O aparelho apresentou defeito e não foi trocado (Grupo Problema: Vício de Qualidade, Problema: Produto danificado / não funciona - Dificuldade em trocar ou consertar no prazo de garantia). O consumidor reside em São Paulo (UF: SP, Região: SE) e já acionou a empresa (Procurou Empresa: S). Dados demográficos adicionais não foram informados.",
+  "Sexo": "Não informado",
+  "Faixa Etária": "Não informado",
+  "Região": "SE",
+  "UF": "SP",
+  "Canal de Origem": "Não informado",
+  "Como Comprou Contratou": "Internet",
+  "Ano Abertura": "2026.0",
+  "Mês Abertura": "3.0",
+  "Segmento de Mercado": "Comércio Eletrônico",
+  "Área": "Produtos de Telefonia e Informática",
+  "Assunto": "Aparelho celular",
+  "Grupo Problema": "Vício de Qualidade",
+  "Problema": "Produto danificado / não funciona - Dificuldade em trocar ou consertar no prazo de garantia",
+  "Procurou Empresa": "S"
+}
