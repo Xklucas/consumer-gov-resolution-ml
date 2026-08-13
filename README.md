@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/consumer-gov-cover.jpg" alt="Consumidor.gov.br — análise e predição" width="100%">
+</p>
+
 # Painel Inteligente para Análise e Estimativa de Resolução de Reclamações no Consumidor.gov.br
 
 Este repositório contém o código, os dados processados, os modelos treinados, os resultados e as instruções de reprodução do projeto final da disciplina **INF 420 - Inteligência Artificial I**.
@@ -8,6 +12,10 @@ O objetivo do projeto é avaliar modelos supervisionados de aprendizado de máqu
 
 - Mateus José Dias
 - Lucas Carvalho de Góes
+
+## Participação no projeto
+
+Minha contribuição esteve concentrada na definição do problema, na estruturação metodológica, na análise dos resultados e na comunicação visual do trabalho. O desenvolvimento foi realizado em equipe, preservando a autoria e as responsabilidades compartilhadas do projeto.
 
 ## Visão geral do projeto
 
